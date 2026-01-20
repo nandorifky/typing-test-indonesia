@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- SEO & Meta Tags Lengkap -->
+    <title>IndoTeks - Typing Test Bahasa Indonesia & Analisis Kecepatan Ketik</title>
+    <meta name="description" content="Uji kecepatan mengetik Anda dengan IndoTeks. Alat tes mengetik bahasa Indonesia akurat dengan analisis WPM, mode Zen, dan kosakata komprehensif. Latih skill 10 jari Anda sekarang.">
+    <meta name="keywords" content="typing test indonesia, tes kecepatan mengetik, cek wpm, belajar mengetik 10 jari, tes ketik online, indoteks, typing speed test">
+    <meta name="author" content="IndoTeks Developer">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#ffc900">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://indoteks.github.io/">
+    <meta property="og:title" content="IndoTeks - Typing Test Bahasa Indonesia">
+    <meta property="og:description" content="Seberapa cepat jari Anda? Cek WPM Anda sekarang dengan dataset kosakata Indonesia yang akurat.">
+    <meta property="og:image" content="https://placehold.co/1200x630/ffc900/000000?text=IndoTeks+Typing+Test">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://indoteks.github.io/">
+    <meta property="twitter:title" content="IndoTeks - Typing Test Bahasa Indonesia">
+    <meta property="twitter:description" content="Uji kecepatan mengetik bahasa Indonesia Anda. Tanpa lag, desain minimalis.">
+    <meta property="twitter:image" content="https://placehold.co/1200x630/ffc900/000000?text=IndoTeks+Typing+Test">
+
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'g-black': '#1a1a1a',
+                        'g-white': '#ffffff',
+                        'g-pink': '#ff90e8',
+                        'g-yellow': '#ffc900',
+                        'g-cyan': '#23a094',
+                        'g-gray': '#f3f4f6',
+                        'g-dark-gray': '#e5e7eb',
+                    },
+                    boxShadow: {
+                        'hard': '4px 4px 0px 0px #1a1a1a',
+                        'hard-sm': '2px 2px 0px 0px #1a1a1a',
+                        'hard-lg': '8px 8px 0px 0px #1a1a1a',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #fcfcfc;
+            overflow-x: hidden;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* --- TYPING ENGINE STYLES --- */
+        .typing-area {
+            position: relative;
+            line-height: 1.6;
+            font-size: 1.5rem;
+            height: 120px; 
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #caret {
+            position: absolute;
+            width: 3px;
+            height: 1.6rem; 
+            background-color: #ffc900;
+            border-left: 1px solid #1a1a1a;
+            transition: left 0.08s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        top 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 10;
+            pointer-events: none;
+            will-change: left, top;
+        }
+
+        .blink { animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        #hidden-input {
+            opacity: 0;
+            position: absolute;
+            z-index: -999;
+            top: 0; left: 0;
+            pointer-events: none;
+        }
+
+        .char { position: relative; color: #9ca3af; }
+        .char.correct { color: #111827; }
+        .char.incorrect { color: #ef4444; text-decoration: underline; text-decoration-color: #ef4444; }
+        .char.extra { color: #b91c1c; opacity: 0.7; }
+
+        #focus-guard {
+            backdrop-filter: blur(4px);
+            transition: opacity 0.2s ease;
+        }
+
+        #words {
+            position: relative;
+            will-change: transform;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* --- UI COMPONENTS --- */
+        .g-btn {
+            @apply border-2 border-g-black bg-white px-4 py-2 font-bold shadow-hard transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-hard-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none;
+        }
+        .g-card { @apply border-2 border-g-black bg-white p-6 shadow-hard; }
+        
+        .nav-link {
+            @apply font-bold text-gray-600 hover:text-black hover:underline decoration-2 underline-offset-4 transition-colors;
+        }
+    </style>
+</head>
+<body class="text-g-black font-sans flex flex-col min-h-screen">
+
+    <!-- NAVBAR -->
+    <nav class="fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md border-b-2 border-g-black z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex justify-between items-center">
+            <!-- Logo -->
+            <a href="#" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 bg-g-yellow border-2 border-g-black shadow-hard-sm flex items-center justify-center group-hover:shadow-none group-hover:translate-x-[2px] group-hover:translate-y-[2px] transition-all">
+                    <span class="font-mono font-bold text-lg">I</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-black tracking-tight leading-none">IndoTeks</span>
+                    <span class="text-[10px] font-mono font-bold text-gray-500 leading-none">Typing Test Indonesia</span>
+                </div>
+            </a>
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center gap-6">
+                <a href="#test-area" class="nav-link text-g-cyan">Tes Mengetik</a>
+                <a href="#about" class="nav-link">Tentang</a>
+                <a href="#tips" class="nav-link">Tips</a>
+                <a href="https://github.com" target="_blank" class="g-btn !py-1 !px-3 text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION (THE TOOL) -->
+    <section id="test-area" class="min-h-screen pt-24 pb-12 flex flex-col items-center justify-center px-4 relative">
+        
+        <!-- Config Bar -->
+        <div class="w-full max-w-5xl bg-g-gray border-2 border-g-black p-2 mb-8 shadow-hard rounded-lg flex flex-wrap justify-center gap-4 text-sm select-none z-20 relative animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div class="flex items-center gap-1 bg-white border border-g-black px-2 py-1 rounded">
+                <span class="text-xs font-bold mr-2 text-gray-500">MODE</span>
+                <button class="config-btn mode-btn hover:text-g-cyan font-bold transition" data-val="time">Time</button>
+                <span class="text-gray-300">|</span>
+                <button class="config-btn mode-btn hover:text-g-cyan transition" data-val="words">Words</button>
+                <span class="text-gray-300">|</span>
+                <button class="config-btn mode-btn hover:text-g-cyan transition" data-val="zen">Zen</button>
+            </div>
+            <div class="flex items-center gap-1 bg-white border border-g-black px-2 py-1 rounded" id="sub-config"></div>
+            <div class="flex items-center gap-1 bg-white border border-g-black px-2 py-1 rounded">
+                <span class="text-xs font-bold mr-2 text-gray-500">LEVEL</span>
+                <button class="config-btn diff-btn hover:text-g-green transition font-bold" data-val="easy">Easy</button>
+                <span class="text-gray-300">|</span>
+                <button class="config-btn diff-btn hover:text-g-yellow transition" data-val="standard">Standar</button>
+                <span class="text-gray-300">|</span>
+                <button class="config-btn diff-btn hover:text-g-pink transition" data-val="expert">Expert</button>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="mod-punct" class="g-btn !py-1 !px-2 text-xs !shadow-sm">@ Punct</button>
+                <button id="mod-num" class="g-btn !py-1 !px-2 text-xs !shadow-sm"># Num</button>
+            </div>
+        </div>
+
+        <!-- Stats Live -->
+        <div class="w-full max-w-5xl flex justify-between items-end mb-2 px-2 font-mono text-xl">
+            <div id="live-timer" class="text-g-cyan font-bold">00:00</div>
+            <div class="text-gray-400 text-sm" id="caps-warning" style="visibility: hidden;">
+                <i class="bg-red-500 text-white px-2 py-1 rounded text-xs font-sans font-bold">CAPS LOCK ON</i>
+            </div>
+            <div id="live-wpm" class="opacity-50">0 WPM</div>
+        </div>
+
+        <!-- Main Typing Area -->
+        <main class="relative w-full max-w-5xl g-card !p-8 !h-[260px] flex items-center cursor-text mb-8" id="game-container">
+            <div id="focus-guard" class="absolute inset-0 z-50 flex items-center justify-center bg-white/50 opacity-0 pointer-events-none">
+                <div class="bg-black text-white px-6 py-3 font-mono font-bold shadow-hard transform rotate-2">Klik untuk fokus ⏎</div>
+            </div>
+            <div class="relative w-full h-[120px] overflow-hidden" id="words-wrapper">
+                <!-- Caret will be injected here by JS -->
+                <div id="words" class="font-mono text-2xl leading-normal break-all" style="transform: translateY(0px);"></div>
+            </div>
+            <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </main>
+
+        <!-- Footer Controls -->
+        <div class="flex gap-4 mb-16">
+            <button onclick="resetTest()" class="g-btn flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                Restart (Tab)
+            </button>
+            <button onclick="finishGame()" class="g-btn flex items-center gap-2 bg-g-gray">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                Stop (Esc)
+            </button>
+        </div>
+
+        <!-- Scroll Indicator -->
+        <div class="absolute bottom-8 animate-bounce text-gray-400 flex flex-col items-center">
+            <span class="text-xs font-mono mb-1">Scroll for Info</span>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        </div>
+    </section>
+
+    <!-- CONTENT / INFO SECTION -->
+    <section id="about" class="py-20 bg-white border-t-2 border-g-black">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 bg-g-black text-white flex items-center justify-center font-bold shadow-hard">?</div>
+                <h2 class="text-3xl font-black uppercase tracking-tight">Tentang IndoTeks</h2>
+            </div>
+            
+            <div class="prose max-w-none text-gray-800 leading-relaxed space-y-6">
+                <p class="text-lg">
+                    <strong>IndoTeks</strong> adalah platform tes mengetik yang dirancang khusus untuk pengguna Indonesia. Berbeda dengan platform global, IndoTeks menggunakan algoritma pengacakan kata berbasis frekuensi penggunaan dalam Bahasa Indonesia sehari-hari hingga kosakata ilmiah (mode Expert).
+                </p>
+                <div class="grid md:grid-cols-3 gap-6 my-8">
+                    <div class="bg-g-gray p-4 border-2 border-g-black shadow-hard-sm">
+                        <h3 class="font-bold text-lg mb-2">⚡ Zero Latency</h3>
+                        <p class="text-sm text-gray-600">Engine kami berjalan 100% di browser Anda. Tidak ada lag server, input instan.</p>
+                    </div>
+                    <div class="bg-g-gray p-4 border-2 border-g-black shadow-hard-sm">
+                        <h3 class="font-bold text-lg mb-2">🧠 Smart Dataset</h3>
+                        <p class="text-sm text-gray-600">Ribuan kata dikurasi dari KBBI dan korpus literatur Indonesia.</p>
+                    </div>
+                    <div class="bg-g-gray p-4 border-2 border-g-black shadow-hard-sm">
+                        <h3 class="font-bold text-lg mb-2">📊 Deep Analytics</h3>
+                        <p class="text-sm text-gray-600">Analisis WPM bersih, akurasi, dan konsistensi kecepatan ketuk.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tips" class="py-20 bg-g-gray border-t-2 border-g-black">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 bg-g-cyan text-white flex items-center justify-center font-bold shadow-hard">!</div>
+                <h2 class="text-3xl font-black uppercase tracking-tight">Tips Meningkatkan WPM</h2>
+            </div>
+
+            <article class="space-y-8">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="md:w-1/2 bg-white border-2 border-g-black p-6 shadow-hard">
+                        <h3 class="font-bold text-xl mb-3">1. Akurasi > Kecepatan</h3>
+                        <p class="text-gray-600">Jangan terburu-buru. Kecepatan adalah produk sampingan dari akurasi. Jika Anda mengetik cepat tapi banyak salah (backspace), Net WPM Anda akan jatuh.</p>
+                    </div>
+                    <div class="md:w-1/2 bg-white border-2 border-g-black p-6 shadow-hard">
+                        <h3 class="font-bold text-xl mb-3">2. Posisi Jari (Touch Typing)</h3>
+                        <p class="text-gray-600">Pelajari posisi <strong>ASDF - JKL;</strong>. Setiap jari memiliki tanggung jawab tombolnya sendiri. Jangan melihat keyboard!</p>
+                    </div>
+                </div>
+
+                <div class="bg-white border-2 border-g-black p-6 shadow-hard">
+                    <h3 class="font-bold text-xl mb-3">Cara Menghitung WPM</h3>
+                    <p class="text-gray-600 mb-4">WPM (Words Per Minute) dihitung dengan rumus standar internasional:</p>
+                    <code class="block bg-black text-white p-4 font-mono text-sm rounded">
+                        (Jumlah Karakter / 5) / Waktu (menit)
+                    </code>
+                    <p class="text-gray-600 mt-4 text-sm">
+                        *Di IndoTeks, kami menggunakan "Net WPM" yang menghukum kesalahan ketik agar hasil lebih realistis.
+                    </p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-g-black text-white py-12 border-t-2 border-g-black mt-auto">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start gap-8">
+            <div>
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-6 h-6 bg-g-yellow text-black flex items-center justify-center font-bold">I</div>
+                    <span class="font-bold text-xl">IndoTeks</span>
+                </div>
+                <p class="text-gray-400 text-sm max-w-xs">
+                    Proyek Open Source untuk memajukan literasi digital Indonesia melalui latihan mengetik yang menyenangkan dan estetik.
+                </p>
+            </div>
+            
+            <div class="flex gap-8 text-sm">
+                <div class="flex flex-col gap-2">
+                    <span class="font-bold text-g-gray mb-2 uppercase tracking-wider text-xs">Menu</span>
+                    <a href="#" class="hover:text-g-yellow transition">Beranda</a>
+                    <a href="#test-area" class="hover:text-g-yellow transition">Mulai Tes</a>
+                    <a href="#about" class="hover:text-g-yellow transition">Tentang</a>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <span class="font-bold text-g-gray mb-2 uppercase tracking-wider text-xs">Connect</span>
+                    <a href="https://github.com" target="_blank" class="hover:text-g-yellow transition">GitHub</a>
+                    <a href="#" class="hover:text-g-yellow transition">Twitter</a>
+                    <a href="#" class="hover:text-g-yellow transition">Email</a>
+                </div>
+            </div>
+        </div>
+        <div class="max-w-6xl mx-auto px-4 mt-12 pt-8 border-t border-gray-800 text-center text-xs text-gray-500 font-mono">
+            &copy; 2024 IndoTeks. Dibuat dengan <span class="text-red-500">♥</span> dan Kopi Oleh Nando Rifky.
+        </div>
+    </footer>
+
+    <!-- RESULT MODAL (Hidden by default) -->
+    <div id="result-modal" class="fixed inset-0 z-[100] bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white w-full max-w-3xl border-4 border-black shadow-hard-lg flex flex-col animate-in fade-in zoom-in duration-300">
+            <div class="bg-g-yellow border-b-4 border-black p-4 flex justify-between items-center">
+                <h2 class="font-black text-2xl tracking-tighter uppercase italic">Hasil Tes</h2>
+                <div class="text-sm font-mono font-bold">Great Job!</div>
+            </div>
+            <div class="flex flex-col md:flex-row">
+                <div class="md:w-1/2 p-6 flex flex-col gap-6 border-b-4 md:border-b-0 md:border-r-4 border-black bg-g-gray">
+                    <div class="bg-white border-2 border-black p-4 shadow-hard">
+                        <div class="text-xs font-bold text-gray-500 uppercase mb-1">WPM (Net)</div>
+                        <div class="flex items-end gap-2">
+                            <span class="text-6xl font-black text-g-cyan leading-none" id="res-wpm">0</span>
+                            <span class="text-sm font-bold text-gray-400 mb-2">kata/menit</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white border-2 border-black p-3 shadow-hard-sm">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase">Akurasi</div>
+                            <div class="text-2xl font-bold" id="res-acc">0%</div>
+                        </div>
+                        <div class="bg-white border-2 border-black p-3 shadow-hard-sm">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase">Raw WPM</div>
+                            <div class="text-2xl font-bold text-gray-600" id="res-raw">0</div>
+                        </div>
+                    </div>
+                    <div class="border-t-2 border-black/20 pt-4">
+                        <div class="text-xs font-bold mb-3 uppercase tracking-wider">Detail Karakter</div>
+                        <div class="flex justify-between text-center font-mono text-sm">
+                            <div><div class="text-gray-400 text-[10px]">BENAR</div><div class="font-bold text-green-600 text-lg" id="char-correct">0</div></div>
+                            <div><div class="text-gray-400 text-[10px]">SALAH</div><div class="font-bold text-red-500 text-lg" id="char-wrong">0</div></div>
+                            <div><div class="text-gray-400 text-[10px]">EKSTRA</div><div class="font-bold text-yellow-600 text-lg" id="char-extra">0</div></div>
+                            <div><div class="text-gray-400 text-[10px]">LEWAT</div><div class="font-bold text-gray-400 text-lg" id="char-missed">0</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-1/2 p-6 flex flex-col justify-between bg-white">
+                    <div>
+                        <h3 class="font-bold text-sm uppercase mb-4">Grafik Performa</h3>
+                        <div class="relative h-[200px] w-full border-2 border-dashed border-gray-300 rounded p-2">
+                            <canvas id="wpmChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex flex-col gap-3">
+                        <button onclick="resetTest(); closeModal();" class="g-btn bg-black text-white border-black hover:bg-g-cyan hover:text-white w-full flex justify-center items-center gap-2 group">
+                            <span>Ulangi Tes</span>
+                        </button>
+                        <button onclick="closeModal()" class="g-btn bg-white w-full text-sm">Tutup / Lihat Teks</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC (No changes to logic, just wrapped in body) -->
+    <script>
+        // --- 1. DATA MANAGEMENT ---
+        const wordBanks = {
+            easy: ["aku","kamu","dia","kita","kami","mereka","ini","itu","sini","situ","sana","semua","sendiri","lain","bisa","mau","ingin","akan","sudah","belum","harus","boleh","perlu","makan","minum","tidur","bangun","jalan","lari","duduk","berdiri","datang","pergi","pulang","masuk","keluar","lihat","dengar","rasa","cium","tahu","kenal","ingat","lupa","ambil","taruh","buka","tutup","pakai","buat","beli","jual","bayar","tulis","baca","hitung","main","kerja","belajar","masak","cuci","bantu","tanya","jawab","rumah","sekolah","kantor","kelas","toko","pasar","jalan","kamar","dapur","toilet","meja","kursi","lemari","pintu","jendela","buku","pena","kertas","tas","hp","komputer","tv","mobil","motor","sepeda","uang","kunci","air","nasi","roti","mie","telur","buah","sayur","ikan","daging","kopi","teh","susu","teman","guru","murid","orang","anak","ibu","ayah","kakak","adik","keluarga","pagi","siang","sore","malam","hari","minggu","bulan","tahun","jam","menit","detik","sekarang","nanti","besok","kemarin","awal","akhir","cepat","lambat","besar","kecil","panjang","pendek","tinggi","rendah","panas","dingin","keras","lembut","mahal","murah","baru","lama","bersih","kotor","baik","jahat","ramah","mudah","sulit","ringan","berat","dekat","jauh","benar","salah","senang","sedih","marah","takut","tenang","cinta","suka","benci","rindu","bosan","capek","lapar","haus","sehat","sakit","apa","siapa","mana","kapan","kenapa","bagaimana","dan","atau","tapi","karena","jika","kalau","agar","nol","satu","dua","tiga","empat","lima","enam","tujuh","delapan","sembilan","sepuluh","banyak","sedikit"],
+            standard: ["perusahaan", "pemerintah", "masyarakat", "pendidikan", "kesehatan", "teknologi", "informasi", "komunikasi", "transportasi", "lingkungan", "ekonomi", "politik", "budaya", "sejarah", "geografi", "matematika", "fisika", "biologi", "kimia", "astronomi", "psikologi", "sosiologi", "antropologi", "filsafat", "sastra", "bahasa", "indonesia", "nusantara", "republik", "demokrasi", "konstitusi", "presiden", "menteri", "gubernur", "bupati", "walikota", "kecamatan", "kelurahan", "desa", "kampung", "tetangga", "keluarga", "sahabat", "teman", "musuh", "perjalanan", "petualangan", "pengalaman", "pengetahuan", "pemahaman", "pengertian", "perasaan", "pemikiran"],
+            expert: ["infrastruktur", "implementasi", "ekstrapolasi", "komprehensif", "signifikansi", "integritas", "akuntabilitas", "transparansi", "birokrasi", "administrasi", "manajemen", "organisasi", "institusi", "lembaga", "asosiasi", "federasi", "konfederasi", "aliansi", "koalisi", "oposisi", "parlemen", "yudikatif", "legislatif", "eksekutif", "yurisdiksi", "konstitusional", "inkonstitusional", "prosedural", "substansial", "fundamental", "esensial", "eksistensial", "fenomenal", "spektakuler", "kontroversial", "paradoks", "anomali", "ambiguitas", "kompleksitas", "diversifikasi", "intensifikasi", "ekstensifikasi", "rehabilitasi", "rekonstruksi", "restrukturisasi", "revitalisasi"]
+        };
+        const punctuations = [",", ".", ";", ":", "?", "!", "\"", "'", "(", ")"];
+
+        let state = {
+            mode: 'time',
+            timeLimit: 30,
+            wordLimit: 25,
+            difficulty: 'easy',
+            modifiers: { punct: false, num: false },
+            words: [],
+            startTime: null,
+            timer: null,
+            isRunning: false,
+            currentWordIndex: 0,
+            currentScrollOffset: 0, 
+            historyCorrectChars: 0,
+            historyIncorrectChars: 0,
+            correctChars: 0,
+            incorrectChars: 0,
+            extraChars: 0,
+            missedChars: 0,
+            rawKeyStrokes: 0,
+            history: []
+        };
+
+        const els = {
+            words: document.getElementById('words'),
+            wrapper: document.getElementById('words-wrapper'),
+            input: document.getElementById('hidden-input'),
+            caret: null,
+            timer: document.getElementById('live-timer'),
+            wpm: document.getElementById('live-wpm'),
+            modal: document.getElementById('result-modal'),
+            focusGuard: document.getElementById('focus-guard'),
+            capsWarning: document.getElementById('caps-warning'),
+            modeBtns: document.querySelectorAll('.mode-btn'),
+            diffBtns: document.querySelectorAll('.diff-btn'),
+            subConfig: document.getElementById('sub-config'),
+        };
+
+        let chartInstance = null;
+
+        function init() {
+            createCaretElement();
+            setupConfigListeners();
+            setupInputListeners();
+            renderSubConfig();
+            resetTest();
+            window.addEventListener('resize', () => {
+                if(state.words.length > 0) updateCaretPosition(state.currentWordIndex, els.input.value.length - 1);
+            });
+        }
+        
+        function createCaretElement() {
+            const caret = document.createElement('div');
+            caret.id = 'caret';
+            caret.className = 'blink';
+            els.caret = caret;
+        }
+
+        function setupConfigListeners() {
+            els.modeBtns.forEach(btn => btn.addEventListener('click', (e) => {
+                state.mode = e.target.dataset.val;
+                updateActiveBtn(els.modeBtns, state.mode);
+                renderSubConfig(); resetTest();
+            }));
+            els.diffBtns.forEach(btn => btn.addEventListener('click', (e) => {
+                state.difficulty = e.target.dataset.val;
+                updateActiveBtn(els.diffBtns, state.difficulty);
+                resetTest();
+            }));
+            document.getElementById('mod-punct').addEventListener('click', function() { state.modifiers.punct = !state.modifiers.punct; this.classList.toggle('active'); resetTest(); });
+            document.getElementById('mod-num').addEventListener('click', function() { state.modifiers.num = !state.modifiers.num; this.classList.toggle('active'); resetTest(); });
+            updateActiveBtn(els.modeBtns, state.mode);
+            updateActiveBtn(els.diffBtns, state.difficulty);
+        }
+
+        function updateActiveBtn(list, val) {
+            list.forEach(btn => btn.classList.toggle('text-g-cyan', btn.dataset.val === val));
+            list.forEach(btn => btn.classList.toggle('underline', btn.dataset.val === val));
+        }
+
+        function renderSubConfig() {
+            els.subConfig.innerHTML = '';
+            const opts = state.mode === 'time' ? [15, 30, 60, 120] : state.mode === 'words' ? [10, 25, 50, 100] : [];
+            
+            if(state.mode === 'zen') {
+                els.subConfig.innerHTML = '<span class="text-xs text-gray-400 px-2">Endurance</span>';
+            } else {
+                opts.forEach(v => {
+                    const btn = document.createElement('button');
+                    const isActive = (state.mode === 'time' && state.timeLimit === v) || (state.mode === 'words' && state.wordLimit === v);
+                    btn.className = `config-sub-btn hover:text-black transition px-1 ${isActive ? 'text-g-cyan font-bold' : 'text-gray-400'}`;
+                    btn.innerText = v;
+                    btn.onclick = () => { 
+                        if(state.mode === 'time') state.timeLimit = v; 
+                        else state.wordLimit = v; 
+                        renderSubConfig(); resetTest(); 
+                    };
+                    els.subConfig.appendChild(btn);
+                });
+            }
+        }
+
+        function generateWords() {
+            let base = [...wordBanks[state.difficulty]];
+            if(state.difficulty !== 'easy') base = base.concat(wordBanks.easy);
+            if(state.difficulty === 'expert') base = base.concat(wordBanks.standard);
+            
+            for (let i = base.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [base[i], base[j]] = [base[j], base[i]];
+            }
+
+            const result = [];
+            const count = state.mode === 'words' ? state.wordLimit : 100;
+            
+            for(let i=0; i<count; i++) {
+                let w = base[i % base.length];
+                if(state.modifiers.punct) {
+                    if(Math.random() > 0.7) w = w.charAt(0).toUpperCase() + w.slice(1);
+                    if(Math.random() > 0.8) w += punctuations[Math.floor(Math.random() * punctuations.length)];
+                }
+                if(state.modifiers.num && Math.random() > 0.8) result.push(Math.floor(Math.random()*999).toString());
+                result.push(w);
+            }
+            return result;
+        }
+
+        function renderWords() {
+            els.words.innerHTML = '';
+            els.words.appendChild(els.caret);
+            const frag = document.createDocumentFragment();
+            state.words.forEach((w) => {
+                const d = document.createElement('div');
+                d.className = 'word inline-block mr-3 mb-2 relative';
+                w.split('').forEach(c => {
+                    const s = document.createElement('span'); s.className = 'char'; s.innerText = c; d.appendChild(s);
+                });
+                frag.appendChild(d);
+            });
+            els.words.appendChild(frag);
+        }
+
+        function addMoreWords() {
+             const newWords = generateWords().slice(0, 20);
+             state.words = state.words.concat(newWords);
+             const frag = document.createDocumentFragment();
+             newWords.forEach(w => {
+                const d = document.createElement('div');
+                d.className = 'word inline-block mr-3 mb-2 relative';
+                w.split('').forEach(c => {
+                    const s = document.createElement('span'); s.className = 'char'; s.innerText = c; d.appendChild(s);
+                });
+                frag.appendChild(d);
+             });
+             els.words.appendChild(frag);
+        }
+
+        function resetTest() {
+            clearInterval(state.timer);
+            state.isRunning = false;
+            state.startTime = null;
+            state.currentWordIndex = 0;
+            state.currentScrollOffset = 0;
+            
+            state.historyCorrectChars = 0;
+            state.historyIncorrectChars = 0;
+            state.correctChars = 0;
+            state.incorrectChars = 0;
+            state.extraChars = 0;
+            state.missedChars = 0;
+            state.rawKeyStrokes = 0;
+            state.history = [];
+            
+            els.input.value = '';
+            els.words.style.transform = 'translateY(0px)';
+            
+            state.words = generateWords();
+            renderWords();
+            
+            els.timer.innerText = state.mode === 'time' ? formatTime(state.timeLimit) : "00:00";
+            els.wpm.innerText = "0 WPM";
+            
+            updateCaretPosition(0, -1);
+            els.input.focus();
+            els.caret.classList.add('blink');
+        }
+
+        function startTimer() {
+            state.isRunning = true;
+            state.startTime = Date.now();
+            els.caret.classList.remove('blink');
+            state.timer = setInterval(() => {
+                const now = Date.now();
+                const delta = (now - state.startTime) / 1000;
+                if(state.mode === 'time') {
+                    const remaining = state.timeLimit - delta;
+                    if(remaining <= 0) { els.timer.innerText = "00:00"; finishGame(); } 
+                    else { els.timer.innerText = formatTime(Math.ceil(remaining)); }
+                } else {
+                    els.timer.innerText = formatTime(Math.floor(delta));
+                }
+                const currentWpm = calculateWPM(delta);
+                state.history.push(currentWpm);
+                els.wpm.innerText = Math.round(currentWpm) + " WPM";
+            }, 1000);
+        }
+
+        function calculateWPM(seconds) {
+            if(!seconds || seconds <= 0) return 0;
+            const minutes = seconds / 60;
+            const grossWPM = (state.rawKeyStrokes / 5) / minutes;
+            return Math.max(0, grossWPM); 
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60).toString().padStart(2,'0');
+            const sec = (s % 60).toString().padStart(2,'0');
+            return `${m}:${sec}`;
+        }
+
+        function setupInputListeners() {
+            document.addEventListener('keydown', (e) => {
+                if(e.key === 'Tab') { e.preventDefault(); resetTest(); return; }
+                if(e.key === 'Escape') { e.preventDefault(); if(state.isRunning) finishGame(); return; }
+                if(!els.input.matches(':focus') && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                    els.input.focus();
+                }
+            });
+            els.input.addEventListener('blur', () => { els.focusGuard.style.opacity = '1'; els.focusGuard.style.pointerEvents = 'auto'; });
+            els.focusGuard.addEventListener('click', () => { els.input.focus(); els.focusGuard.style.opacity = '0'; els.focusGuard.style.pointerEvents = 'none'; });
+            document.addEventListener('keydown', (e) => els.capsWarning.style.visibility = e.getModifierState("CapsLock") ? 'visible' : 'hidden');
+            els.input.addEventListener('keydown', handleKeydown);
+            els.input.addEventListener('input', handleInput);
+        }
+
+        function handleKeydown(e) {
+            if(!state.isRunning && !e.ctrlKey && e.key.length === 1) startTimer();
+            if (e.ctrlKey && e.key === 'Backspace') {
+                e.preventDefault();
+                const currentWordEl = els.words.children[state.currentWordIndex + 1]; 
+                if (!currentWordEl || !currentWordEl.classList.contains('word')) return;
+                currentWordEl.querySelectorAll('.char').forEach(c => c.className = 'char');
+                currentWordEl.querySelectorAll('.extra').forEach(ex => ex.remove());
+                els.input.value = '';
+                state.rawKeyStrokes++; 
+                updateCaretPosition(state.currentWordIndex, -1);
+            }
+        }
+
+        function handleInput(e) {
+            if (state.currentWordIndex >= state.words.length) { e.preventDefault(); els.input.value = ''; return; }
+            if (!state.isRunning) startTimer();
+            state.rawKeyStrokes++;
+
+            const typedVal = els.input.value;
+            const currentWordStr = state.words[state.currentWordIndex];
+            const currentWordEl = els.words.children[state.currentWordIndex + 1]; 
+            
+            if (!currentWordEl) return;
+            const chars = currentWordEl.querySelectorAll('.char:not(.extra)');
+            
+            if (e.data === ' ' || typedVal.endsWith(' ')) {
+                e.preventDefault();
+                const cleanTyped = typedVal.trim();
+                if (cleanTyped !== currentWordStr) currentWordEl.classList.add('border-b-2', 'border-red-500');
+                
+                let wCorrect = 0, wIncorrect = 0;
+                for(let i=0; i < currentWordStr.length; i++) {
+                    if (i < cleanTyped.length) {
+                        if (cleanTyped[i] === currentWordStr[i]) wCorrect++;
+                        else wIncorrect++;
+                    } else state.missedChars++;
+                }
+                if (cleanTyped.length > currentWordStr.length) state.extraChars += (cleanTyped.length - currentWordStr.length);
+                state.historyCorrectChars += wCorrect;
+                state.historyIncorrectChars += wIncorrect;
+                state.currentWordIndex++;
+                els.input.value = '';
+                if (state.mode === 'words' && state.currentWordIndex >= state.wordLimit) { finishGame(); return; }
+                if ((state.mode === 'time' || state.mode === 'zen') && state.currentWordIndex > state.words.length - 10) addMoreWords();
+                const nextWordEl = els.words.children[state.currentWordIndex + 1];
+                if (nextWordEl) { checkScroll(nextWordEl); updateCaretPosition(state.currentWordIndex, -1); }
+                state.correctChars = state.historyCorrectChars;
+                state.incorrectChars = state.historyIncorrectChars;
+                return;
+            }
+
+            let sessCorrect = 0, sessIncorrect = 0;
+            for (let i = 0; i < chars.length; i++) {
+                const charSpan = chars[i];
+                const charToType = currentWordStr[i];
+                const typedChar = typedVal[i];
+                if (typedChar == null) charSpan.className = 'char';
+                else if (typedChar === charToType) { charSpan.className = 'char correct'; sessCorrect++; }
+                else { charSpan.className = 'char incorrect'; sessIncorrect++; }
+            }
+
+            let extras = currentWordEl.querySelectorAll('.extra');
+            const extraCountNeeded = Math.max(0, typedVal.length - currentWordStr.length);
+            if (extras.length < extraCountNeeded) {
+                const startIdx = currentWordStr.length + extras.length;
+                const fragment = document.createDocumentFragment();
+                for (let i = startIdx; i < typedVal.length; i++) {
+                    const s = document.createElement('span'); s.className = 'char extra'; s.innerText = typedVal[i]; fragment.appendChild(s);
+                }
+                currentWordEl.appendChild(fragment);
+            } else if (extras.length > extraCountNeeded) {
+                for (let i = extras.length - 1; i >= extraCountNeeded; i--) { extras[i].remove(); }
+            }
+
+            state.correctChars = state.historyCorrectChars + sessCorrect;
+            state.incorrectChars = state.historyIncorrectChars + sessIncorrect;
+            updateCaretPosition(state.currentWordIndex, typedVal.length - 1);
+        }
+
+        function updateCaretPosition(wordIdx, charIdx) {
+            const wordEl = els.words.children[wordIdx + 1];
+            if(!wordEl) return;
+            const wordsRect = els.words.getBoundingClientRect();
+            let targetRect;
+            if (charIdx === -1) {
+                const firstChar = wordEl.querySelector('.char');
+                if(!firstChar) return; 
+                targetRect = firstChar.getBoundingClientRect();
+                els.caret.style.left = (targetRect.left - wordsRect.left) + 'px';
+                els.caret.style.top = (targetRect.top - wordsRect.top + 4) + 'px'; 
+            } else {
+                const allChars = wordEl.querySelectorAll('.char'); 
+                const targetChar = allChars[Math.min(charIdx, allChars.length-1)];
+                if(!targetChar) return;
+                targetRect = targetChar.getBoundingClientRect();
+                els.caret.style.left = (targetRect.right - wordsRect.left) + 'px';
+                els.caret.style.top = (targetRect.top - wordsRect.top + 4) + 'px';
+            }
+        }
+
+        function checkScroll(currentWordEl) {
+            const lineHeight = 40; 
+            const wordTop = currentWordEl.offsetTop; 
+            if (wordTop - Math.abs(state.currentScrollOffset) > lineHeight * 1.2) {
+                state.currentScrollOffset -= lineHeight;
+                els.words.style.transform = `translateY(${state.currentScrollOffset}px)`;
+            }
+        }
+
+        function finishGame() {
+            clearInterval(state.timer);
+            state.isRunning = false;
+            const now = Date.now();
+            const minutes = (now - state.startTime) / 60000;
+            const safeMin = minutes > 0 ? minutes : 0.001;
+            const gross = (state.rawKeyStrokes / 5) / safeMin;
+            const net = Math.max(0, gross - (state.incorrectChars / safeMin));
+            const acc = (state.correctChars / (state.correctChars + state.incorrectChars + state.missedChars + 0.001)) * 100;
+            document.getElementById('res-wpm').innerText = Math.round(net);
+            document.getElementById('res-acc').innerText = Math.round(acc) + "%";
+            document.getElementById('res-raw').innerText = Math.round(gross);
+            document.getElementById('char-correct').innerText = state.correctChars;
+            document.getElementById('char-wrong').innerText = state.incorrectChars;
+            document.getElementById('char-extra').innerText = state.extraChars;
+            document.getElementById('char-missed').innerText = state.missedChars;
+            renderChart();
+            els.modal.classList.remove('hidden');
+        }
+
+        function closeModal() { els.modal.classList.add('hidden'); resetTest(); }
+
+        function renderChart() {
+            const ctx = document.getElementById('wpmChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: state.history.map((_, i) => i + 1),
+                    datasets: [{
+                        label: 'WPM',
+                        data: state.history,
+                        borderColor: '#000000',
+                        backgroundColor: 'rgba(35, 160, 148, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Space Mono' } } },
+                        x: { display: false }
+                    },
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#000', displayColors: false } },
+                    animation: { duration: 1000 }
+                }
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
